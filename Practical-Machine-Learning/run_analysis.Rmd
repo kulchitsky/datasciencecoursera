@@ -1,0 +1,103 @@
+---
+title: "script"
+author: "Yuri Kulchisky"
+date: "25.01.2015"
+output:
+  html_document
+
+---
+
+### Loading packages
+```{r}
+library(data.table)
+library(reshape2)
+```
+
+### Getting data
+
+At first, we well download and unzip file in case if it is not done before.
+
+```{r, message=FALSE}
+url <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+fname <- "Dataset.zip"
+if (!file.exists(fname)) download.file(url, file.path(getwd(), fname),method="wget")
+if (!file.exists("UCI HAR Dataset/")) unzip(fname)
+```
+
+### Basic summary
+
+We can discover features of this dataset by reading the file named *README.TXT*. The information about features is in the file named *features_info.txt*. We need to use only cleared signal, which means, that we ignore *Inertial Signals* folder. The training dataset has the next structure: rows in file named *subject_test.txt* contain the code numbers of 24 subjects, the rows in file *y_test.txt* contain the type of activity, and rows in file *X_test.txt* contain data. The testing dataset is organized in the same way.
+
+The important thing is that *features.txt* contains the list of all features, from which only mean and standard deviation are of interest for us.
+
+```{r}
+features <- as.vector(read.table(file="UCI HAR Dataset/features.txt",col.names=c("","f"))[2][[1]])
+
+subject_test <- data.table(read.table(file="UCI HAR Dataset/test/subject_test.txt"))
+subject_train <- data.table(read.table(file="UCI HAR Dataset/train/subject_train.txt"))
+
+data_test <- data.table(read.table(file="UCI HAR Dataset/test/X_test.txt",sep=""))
+setnames(data_test,features)
+
+data_train <- data.table(read.table(file="UCI HAR Dataset/train/X_train.txt",sep=""))
+setnames(data_train,features)
+
+activities <- data.table(read.table(file="UCI HAR Dataset/activity_labels.txt",col.names=c("","f")))
+
+activities_test <- data.table(read.table(file="UCI HAR Dataset/test/y_test.txt"))
+activities_train <- data.table(read.table(file="UCI HAR Dataset/train/y_train.txt"))
+```
+
+## Merging datasets
+
+After merging datasets we select needed features by using regular expressions mechanism to delete variables that will not be used.
+```{r}
+merged_data <- rbind(data_train,data_test)
+merged_subject <- rbind(subject_train,subject_test)
+merged_activities <- rbind(activities_train,activities_test)
+
+needed_features <- c(grep("+mean[[:punct:]]+",features),grep("+std[[:punct:]]+",features))
+cleaned_data <- merged_data[,needed_features,with=FALSE]
+```
+
+```{r}
+data_frame <- cbind(merged_subject,merged_activities)
+setnames(data_frame,c("Subject","Activity_code"))
+setnames(activities,c("Activity_code","Activity"))
+data_frame <- merge(data_frame, activities, by = "Activity_code", all.x = TRUE)
+data_frame[,Activity_code:=NULL]
+data_frame <- cbind(data_frame,cleaned_data)
+setnames(data_frame,c("Subject","Activity",features[needed_features]))
+setkey(data_frame, Subject, Activity)
+```
+
+The main dataset was created. Now let's go to the process of evaluating tidy dataset.
+
+```{r}
+x <- data_frame
+n <- as.numeric(levels(factor(x$Subject)))
+act <- levels(factor(x$Activity))
+tidy <- as.data.frame(matrix(rep(1:length(colnames(x)),length(n)),nrow=length(n)))
+colnames(tidy)<- colnames(x)
+ft <- colnames(x)[3:length(colnames(x))]
+for (k in 1:length(ft)){
+  for (i in 1:length(n)) {
+    for (j in 1:length(act)){
+      xrow <- x[x$Subject==i]
+      xrow1 <- xrow[xrow$Activity==act[j]]
+      eval(parse(text=paste0("tidy$\'",ft[k],"\'[i]<-mean(xrow1$\'",ft[k],"\')")))
+    }
+  }
+}
+
+write.table(tidy,file="tidy.txt",row.names=FALSE)
+
+```
+
+
+
+
+
+
+
+
