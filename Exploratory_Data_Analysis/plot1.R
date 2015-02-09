@@ -1,0 +1,8 @@
+library(data.table)
+library(dplyr)
+x <- read.csv("household_power_consumption.txt",sep=";",na.strings=c("?"))
+dt <- data.table(x,key="Date")
+dt <- filter(dt,Date %in% c("1/2/2007","2/2/2007"))
+hist(dt[,Global_active_power],xlab="Global active power (kilowatts)",col="red",main="Global Active Power")
+dev.copy(png, file="plot1.png", height=480, width=480)
+dev.off()
