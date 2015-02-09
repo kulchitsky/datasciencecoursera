@@ -1,0 +1,13 @@
+library(data.table)
+library(dplyr)
+x <- read.csv("household_power_consumption.txt",sep=";",na.strings=c("?"))
+dt <- data.table(x,key="Date")
+dt <- filter(dt,Date %in% c("1/2/2007","2/2/2007"))
+y <- as.POSIXct(strptime(paste0(dt$Date,"/",dt$Time),"%d/%m/%Y/%H:%M:%S"))
+dt[,tim:=y]
+plot(dt[,tim],dt[,Sub_metering_1],type="l",xlab="",ylab="Energy sub metering")
+lines(dt[,tim],dt[,Sub_metering_2],col="red")
+lines(dt[,tim],dt[,Sub_metering_3],col="blue")
+legend("topright", col=c("black", "red", "blue"),lty=1, legend=c("Sub_metering_1", "Sub_metering_2", "Sub_metering_3"))
+dev.copy(png, file="plot3.png", height=480, width=480)
+dev.off()
